@@ -1,5 +1,16 @@
 package main
 
+import (
+	"context"
+	"fmt"
+	"io"
+	"net"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+)
+
 /*
 === Утилита telnet ===
 
@@ -15,6 +26,119 @@ go-telnet --timeout=10s host port go-telnet mysite.ru 8080 go-telnet --timeout=3
 При подключении к несуществующему сервер, программа должна завершаться через timeout.
 */
 
-func main() {
+func ConvertTimeString(str string) (time.Duration, error) {
+	letter := str[len(str)-1:]
+	numberStr := str[:len(str)-1]
+	switch letter {
+	case "s":
+		number, err := strconv.Atoi(numberStr)
+		if err != nil {
+			return *new(time.Duration), err
+		}
 
+		return time.Second * time.Duration(number), nil
+	}
+
+	return *new(time.Duration), ErrCanNotConvertTimeString
+}
+
+type Args struct {
+	url     string
+	port    int
+	timeout time.Duration
+}
+
+func CreateArgs(a []string) (Args, error) {
+	strArgs := a[1:]
+
+	args := Args{
+		timeout: time.Second * 10,
+		//timeout: time.Millisecond,
+	}
+
+	if len(strArgs) < 2 {
+		return args, ErrNotEnoughArguments
+	}
+
+	mainArgs := strArgs[len(strArgs)-2:]
+
+	args.url = mainArgs[0]
+
+	port, err := strconv.Atoi(mainArgs[1])
+	if err != nil {
+		return args, err
+	}
+	args.port = port
+
+	if len(strArgs) > 2 {
+		otherArgs := strArgs[:len(strArgs)-2]
+
+		for _, v := range otherArgs {
+			arr := strings.Split(v, "=")
+
+			if len(arr) != 2 {
+				return args, ErrIncorrectArgument
+			}
+
+			switch arr[0] {
+			default:
+				return args, ErrIncorrectArgument
+			case "--timeout":
+				t, err := ConvertTimeString(arr[1])
+				if err != nil {
+					return args, ErrIncorrectArgument
+				}
+				args.timeout = t
+			}
+		}
+	}
+
+	return args, nil
+}
+
+func (v *Args) GetAddr() string {
+	return v.url + ":" + strconv.Itoa(v.port)
+}
+
+func (v *Args) GetURL() string {
+	return v.url
+}
+
+func main() {
+	args, err := CreateArgs(os.Args)
+	if err != nil {
+		panic(err)
+	}
+
+	var d net.Dialer
+	ctx, cancel := context.WithTimeout(context.Background(), args.timeout)
+	defer cancel()
+
+	d.LocalAddr = nil
+
+	fmt.Printf("Trying %v...\n", args.GetURL())
+	conn, err := d.DialContext(ctx, "tcp", args.GetAddr())
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+	fmt.Printf("Connected to %v.\n", args.GetURL())
+
+	for {
+		var str string
+		_, err := fmt.Fscan(os.Stdin, &str)
+		if err != nil {
+			panic(err)
+		}
+
+		_, err = fmt.Fprintf(conn, fmt.Sprintf("%v\r\n\r\n", str))
+		if err != nil {
+			panic(err)
+		}
+		answer, err := io.ReadAll(conn)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(string(answer))
+	}
 }
