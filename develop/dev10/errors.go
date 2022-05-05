@@ -2,7 +2,9 @@ package main
 
 import "errors"
 
-var ErrNotEnoughArguments error = errors.New("Not enough arguments")
-var ErrIncorrectArgument error = errors.New("Incorrect argument")
+var ErrNotEnoughArguments error = errors.New("Not enough arguments.")
+var ErrIncorrectArgument error = errors.New("Incorrect argument.")
 
-var ErrCanNotConvertTimeString error = errors.New("Can not convert time string")
+var ErrCanNotConvertTimeString error = errors.New("Can not convert time string.")
+
+var ErrConnectionClosed error = errors.New("Connection closed.")

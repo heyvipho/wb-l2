@@ -107,7 +107,8 @@ func (v *Args) GetURL() string {
 func main() {
 	args, err := CreateArgs(os.Args)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 
 	var d net.Dialer
@@ -128,16 +129,24 @@ func main() {
 		var str string
 		_, err := fmt.Fscan(os.Stdin, &str)
 		if err != nil {
+			if err == io.EOF {
+				conn.Close()
+				fmt.Println(ErrConnectionClosed)
+				return
+			}
 			panic(err)
 		}
 
 		_, err = fmt.Fprintf(conn, fmt.Sprintf("%v\r\n\r\n", str))
 		if err != nil {
-			panic(err)
+			fmt.Println(ErrConnectionClosed)
+			return
 		}
+
 		answer, err := io.ReadAll(conn)
 		if err != nil {
-			panic(err)
+			fmt.Println(ErrConnectionClosed)
+			return
 		}
 		fmt.Println(string(answer))
 	}
