@@ -8,6 +8,6 @@ import (
 func TestFormat(t *testing.T) {
 	got := format(time.Date(0, 0, 0, 12, 34, 56, 0, time.UTC))
 	if got != "12:34:56" {
-		t.Errorf("TestFormat: got %v; want 1", got)
+		t.Errorf("TestFormat: want 12:34:56; got %v", got)
 	}
 }
