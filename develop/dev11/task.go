@@ -1,5 +1,14 @@
 package main
 
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"sync"
+	"time"
+)
+
 /*
 === HTTP server ===
 
@@ -22,6 +31,223 @@ package main
 	4. Код должен проходить проверки go vet и golint.
 */
 
-func main() {
+var events = sync.Map{}
 
+func CreateEvent(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		throwError(w, ErrorWrongMethod)
+		return
+	}
+
+	date, err := time.Parse("2006-01-02", r.FormValue("date"))
+	if err != nil {
+		throwError(w, ErrorCanNotParseDate)
+		return
+	}
+
+	id := r.FormValue("id")
+	title := r.FormValue("title")
+
+	event := Event{
+		ID:    id,
+		Title: title,
+		Date:  date,
+	}
+
+	events.Store(id, event)
+
+	v, err := json.Marshal(APIResult{APIEventID{ID: id}})
+	if err != nil {
+		throwError(w, ErrorInternalError)
+		return
+	}
+	fmt.Fprint(w, string(v))
+}
+
+func UpdateEvent(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		throwError(w, ErrorWrongMethod)
+		return
+	}
+
+	date, err := time.Parse("2006-01-02", r.FormValue("date"))
+	if err != nil {
+		throwError(w, ErrorCanNotParseDate)
+		return
+	}
+
+	id := r.FormValue("id")
+	title := r.FormValue("title")
+
+	event := Event{
+		ID:    id,
+		Title: title,
+		Date:  date,
+	}
+
+	events.Store(id, event)
+
+	v, err := json.Marshal(APIResult{APIEventID{ID: id}})
+	if err != nil {
+		throwError(w, ErrorInternalError)
+		return
+	}
+	fmt.Fprint(w, string(v))
+}
+
+func DeleteEvent(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		throwError(w, ErrorWrongMethod)
+		return
+	}
+
+	id := r.FormValue("id")
+
+	events.Delete(id)
+
+	v, err := json.Marshal(APIResult{APIEventID{ID: id}})
+	if err != nil {
+		throwError(w, ErrorInternalError)
+		return
+	}
+	fmt.Fprint(w, string(v))
+}
+
+func GetEventsForDay(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		throwError(w, ErrorWrongMethod)
+		return
+	}
+
+	result := make(map[string][]APIEvent)
+
+	events.Range(func(k interface{}, v interface{}) bool {
+		e, ok := v.(Event)
+		if !ok {
+			return true
+		}
+
+		date := e.Date.Format("2006-01-02")
+
+		if _, ok := result[date]; !ok {
+			result[date] = make([]APIEvent, 0)
+		}
+
+		result[date] = append(result[date], APIEvent{
+			ID:    e.ID,
+			Title: e.Title,
+			Date:  e.Date.Format("2006-01-02"),
+		})
+
+		return true
+	})
+
+	v, err := json.Marshal(APIResult{result})
+	if err != nil {
+		throwError(w, ErrorInternalError)
+		return
+	}
+	fmt.Fprint(w, string(v))
+}
+
+func GetEventsForWeek(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		throwError(w, ErrorWrongMethod)
+		return
+	}
+
+	result := make(map[string][]APIEvent)
+
+	events.Range(func(k interface{}, v interface{}) bool {
+		e, ok := v.(Event)
+		if !ok {
+			return true
+		}
+
+		date := e.Date.AddDate(0, 0, -int(e.Date.Weekday())).Format("2006-01-02")
+
+		if _, ok := result[date]; !ok {
+			result[date] = make([]APIEvent, 0)
+		}
+
+		result[date] = append(result[date], APIEvent{
+			ID:    e.ID,
+			Title: e.Title,
+			Date:  e.Date.Format("2006-01-02"),
+		})
+
+		return true
+	})
+
+	v, err := json.Marshal(APIResult{result})
+	if err != nil {
+		throwError(w, ErrorInternalError)
+		return
+	}
+	fmt.Fprint(w, string(v))
+}
+
+func GetEventsForMonth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		throwError(w, ErrorWrongMethod)
+		return
+	}
+
+	result := make(map[string][]APIEvent)
+
+	events.Range(func(k interface{}, v interface{}) bool {
+		e, ok := v.(Event)
+		if !ok {
+			return true
+		}
+
+		date := e.Date.Format("2006-01")
+
+		if _, ok := result[date]; !ok {
+			result[date] = make([]APIEvent, 0)
+		}
+
+		result[date] = append(result[date], APIEvent{
+			ID:    e.ID,
+			Title: e.Title,
+			Date:  e.Date.Format("2006-01-02"),
+		})
+
+		return true
+	})
+
+	v, err := json.Marshal(APIResult{result})
+	if err != nil {
+		throwError(w, ErrorInternalError)
+		return
+	}
+	fmt.Fprint(w, string(v))
+}
+
+type mwfunc func(w http.ResponseWriter, r *http.Request)
+
+func mw(f mwfunc) mwfunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log.Println(r.Method, r.URL)
+		f(w, r)
+	}
+}
+
+func main() {
+	c, err := CreateConfig()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	http.HandleFunc("/create_event", mw(CreateEvent))
+	http.HandleFunc("/update_event", mw(UpdateEvent))
+	http.HandleFunc("/delete_event", mw(DeleteEvent))
+	http.HandleFunc("/events_for_day", mw(GetEventsForDay))
+	http.HandleFunc("/events_for_week", mw(GetEventsForWeek))
+	http.HandleFunc("/events_for_month", mw(GetEventsForMonth))
+
+	err = http.ListenAndServe(c.APIAddress, nil)
+	if err != nil {
+		log.Fatalln(err)
+	}
 }
