@@ -26,7 +26,7 @@ import (
 */
 
 func sortAnagrams(words []string) map[string][]string {
-	m := make(map[string][]string)
+	m := make(map[string]map[string]struct{})
 
 	for _, word := range words {
 		lowerWord := strings.ToLower(word)
@@ -38,29 +38,33 @@ func sortAnagrams(words []string) map[string][]string {
 		key := string(slice)
 
 		if _, ok := m[key]; !ok {
-			m[key] = make([]string, 0)
+			m[key] = make(map[string]struct{})
 		}
 
-		m[key] = append(m[key], lowerWord)
+		m[key][lowerWord] = struct{}{}
 	}
 
 	result := make(map[string][]string)
 
 	for _, v := range m {
-		if len(v) == 1 {
+		if len(v) < 2 {
 			continue
 		}
 
-		key := v[0]
-		sort.Strings(v)
-		result[key] = v
+		slice := make([]string, 0)
+		for w := range v {
+			slice = append(slice, w)
+		}
+		sort.Strings(slice)
+		key := slice[0]
+		result[key] = slice
 	}
 
 	return result
 }
 
 func main() {
-	words := []string{"столик", "пятак", "листок", "пятка", "слиток", "тяпка", "кот"}
+	words := []string{"столик", "пятак", "листок", "пятка", "слиток", "тяпка", "кот", "слиток"}
 
 	fmt.Println(sortAnagrams(words))
 }
