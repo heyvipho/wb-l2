@@ -1,5 +1,15 @@
 package main
 
+import (
+	"flag"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
+	"regexp"
+	"strings"
+)
+
 /*
 === Утилита grep ===
 
@@ -18,6 +28,117 @@ package main
 Программа должна проходить все тесты. Код должен проходить проверки go vet и golint.
 */
 
-func main() {
+type Flags struct {
+	A int
+	B int
+	C int
+	c bool
+	i bool
+	v bool
+	F bool
+	n bool
+}
 
+func main() {
+	flagA := flag.Int("A", 0, "")
+	flagB := flag.Int("B", 0, "")
+	flagC := flag.Int("C", 0, "")
+	flagc := flag.Bool("c", false, "")
+	flagi := flag.Bool("i", false, "")
+	flagv := flag.Bool("v", false, "")
+	flagF := flag.Bool("F", false, "")
+	flagn := flag.Bool("n", false, "")
+
+	flag.Parse()
+
+	f := Flags{
+		A: *flagA,
+		B: *flagB,
+		C: *flagC,
+		c: *flagc,
+		i: *flagi,
+		v: *flagv,
+		F: *flagF,
+		n: *flagn,
+	}
+
+	bytes, err := ioutil.ReadAll(os.Stdin)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	input := string(bytes)
+
+	lines := strings.Split(input, "\n")
+
+	count := 0
+
+	query := strings.Join(flag.Args(), " ")
+
+	after := f.A
+	before := f.B
+
+	if f.C > 0 {
+		after = f.C
+		before = f.C
+	}
+
+	if f.i {
+		query = strings.ToLower(query)
+	}
+
+	for i, v := range lines {
+		isPrint := false
+
+		if f.i {
+			v = strings.ToLower(v)
+		}
+
+		if f.F {
+			isPrint = query == v
+		} else {
+			isPrint, _ = regexp.Match(query, []byte(v))
+		}
+
+		if f.v {
+			isPrint = !isPrint
+		}
+
+		if isPrint {
+			count++
+
+			if !f.c {
+				for j := 1; j <= before; j++ {
+					k := i - j
+					if k >= 0 {
+						if f.n {
+							fmt.Printf("%v: %v\n", k+1, lines[k])
+						} else {
+							fmt.Println(lines[k])
+						}
+					}
+				}
+
+				if f.n {
+					fmt.Printf("%v: %v\n", i+1, v)
+				} else {
+					fmt.Println(v)
+				}
+
+				for j := 1; j <= after; j++ {
+					k := i + j
+					if k <= len(lines) {
+						if f.n {
+							fmt.Printf("%v: %v\n", k+1, lines[k])
+						} else {
+							fmt.Println(lines[k])
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if f.c {
+		fmt.Println(count)
+	}
 }
