@@ -21,7 +21,7 @@ func test() *customError {
 func main() {
 	var err error
 	err = test()
-	if err != nil {
+	if err != nil { // err != (*customError)(nil)
 		println("error")
 		return
 	}
@@ -31,6 +31,7 @@ func main() {
 
 Ответ:
 ```
-...
+error
 
+Ситуация аналогична с заданием №3. [nil, nil] != [*customError, nil]
 ```

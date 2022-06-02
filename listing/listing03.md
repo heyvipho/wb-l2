@@ -16,12 +16,15 @@ func Foo() error {
 func main() {
 	err := Foo()
 	fmt.Println(err)
-	fmt.Println(err == nil)
+	fmt.Println(err == nil) // для правильной работы: err == (*os.PathError)(nil)
 }
 ```
 
 Ответ:
 ```
-...
+<nil>
+false
 
+В случае с интерфейсом, мы сравниваем и значение и тип. У nil тип nil, поэтому err не равно nil.
+Чтобы преобразовать его к типу *os.PathError воспользуемся (*os.PathError)(nil)
 ```
